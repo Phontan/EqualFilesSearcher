@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("EqualFilesDetector")]
+[assembly: AssemblyTitle("EqualFilesDetector1")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Eleks")]
-[assembly: AssemblyProduct("EqualFilesDetector")]
+[assembly: AssemblyProduct("EqualFilesDetector1")]
 [assembly: AssemblyCopyright("Copyright © Eleks 2012")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("2c6f570d-758a-4663-ac6b-9c71c06b0584")]
+[assembly: Guid("c15bf688-3f40-47f9-9d9f-a8e154e1c780")]
 
 // Version information for an assembly consists of the following four values:
 //
