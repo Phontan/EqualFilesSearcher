@@ -7,24 +7,18 @@ namespace EqualFilesDetector1
     {
         static void Main(string[] args)
         {
-            //const string beginFolderPath = @"c:/windows";
-            const string beginFolderPath = @"d:/1/";
+            const string root = @"c:/windows";
+
+            Console.WriteLine("Looking for equal files in directory '{0}'", root);
+
             var sw = Stopwatch.StartNew();
             //var equlFilesDetector = new EqualFilesDetecotr(beginFolderPath);
-            //var result = equlFilesDetector.Start();
+            //var result = equlFilesDetector.DetectEqualFiles();
             var parallelEqualsFilesDetector = new ParallelEqualsFilesDetector();
-            var result = parallelEqualsFilesDetector.Start(beginFolderPath);
-            foreach (var batch in result)
-            {
-                foreach (var fileName in batch)
-                {
-                    
-                }
-                //    Console.WriteLine(fileName);
-                //Console.WriteLine("\n\n\n");
-            }
+            var result = parallelEqualsFilesDetector.DetectEqualFiles(root);
             Console.WriteLine(sw.ElapsedMilliseconds.ToString("#.##"));
             Console.Read();
+
         }
     }
 }

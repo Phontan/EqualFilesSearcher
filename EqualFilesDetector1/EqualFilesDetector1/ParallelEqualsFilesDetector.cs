@@ -12,89 +12,120 @@ namespace EqualFilesDetector1
 {
     class ParallelEqualsFilesDetector
     {
-        private readonly ConcurrentQueue<string> _allFilesQueue;
-        private readonly Dictionary<long, List<string>> _equalSizeFiles;
-        private readonly Dictionary<string, List<string>> _equalFiles;
-        private readonly ConcurrentQueue<string> _hashEqualFiles; 
+        private ConcurrentQueue<string> _allFilesQueue;
+        private ConcurrentQueue<string> _equalHashesQueue;
+        private Dictionary<long, List<string>> _equalSizeFiles;
+        private Dictionary<string, List<string>> _equalHashFiles;
 
-        public ParallelEqualsFilesDetector()
+        private volatile bool _isFilesHandlerTaskDone;
+        private volatile bool _isFilesDetectorTaskDone;
+
+
+        public List<string>[] DetectEqualFiles(string rootFolder)
         {
+            _isFilesDetectorTaskDone = false;
+            _isFilesHandlerTaskDone = false;
+
             _allFilesQueue = new ConcurrentQueue<string>();
+            _equalHashesQueue = new ConcurrentQueue<string>();
             _equalSizeFiles = new Dictionary<long, List<string>>();
-            _equalFiles = new Dictionary<string, List<string>>();
-            _hashEqualFiles = new ConcurrentQueue<string>();
-        }
+            _equalHashFiles = new Dictionary<string, List<string>>();
 
-        public IEnumerable<List<string>> Start(string rootFolder)
-        {
-            bool isFilesDetectorTaskDone = false;
-            bool isFilesHandlerTaskDone = false;
-            var fileHandler = Task.Factory.StartNew(() =>
+            var fileHandler = Task.Factory.StartNew(HandleFiles);
+            var hashHandler = Task.Factory.StartNew(HandleHashes);
+
+            var filesCounter = 0;
+            foreach (var file in SafeWalk.EnumerateFiles(rootFolder))
             {
-                while (! (isFilesDetectorTaskDone && _allFilesQueue.IsEmpty))
-                {
-                    string file;
-                    if (_allFilesQueue.TryDequeue(out file))
-                        ProcessFile(file);
-                    else
-                        Thread.Sleep(1);
-                }
-            });
-
-            var hashHandler = Task.Factory.StartNew(() =>
-            {
-                while (!(_hashEqualFiles.IsEmpty && isFilesHandlerTaskDone))
-                {
-                    string file;
-                    if (_hashEqualFiles.TryDequeue(out file))
-                        AddFileToDictionary(_equalFiles, GetHash(file).Result, file);
-                    else
-                        Thread.Sleep(1);
-                }
-            });
-
-            foreach (var file in SafeWalk.EnumerateFiles(rootFolder, "*", SearchOption.AllDirectories))
+                filesCounter++;
                 _allFilesQueue.Enqueue(file);
-
-            isFilesDetectorTaskDone = true;
+            }
+            Console.WriteLine("{0} files detected. Processing...", filesCounter);
+            _isFilesDetectorTaskDone = true;
             fileHandler.Wait();
-            isFilesHandlerTaskDone = true;
+
+            Console.WriteLine("Step 1 finished. Calculating hashes...");
+            //var filesLeft = _equalHashesQueue.Count;
+            //Task.Factory.StartNew(() =>
+            //                          {
+            //                              var phasesDone = 0;
+            //                              while (true)
+            //                              {
+            //                                  var equalHashesQueueCount = _equalHashesQueue.Count;
+            //                                  var currentPhasesDone = 100 * (filesLeft - equalHashesQueueCount) / filesLeft;
+            //                                  for (var i = 0; i < currentPhasesDone - phasesDone; i++)
+            //                                      Console.Write('.');
+            //                                  phasesDone = currentPhasesDone;
+            //                                  Thread.Sleep(1000);
+            //                              }
+            //                          });
+
+            _isFilesHandlerTaskDone = true;
             hashHandler.Wait();
 
-            return _equalFiles.Values.Where(list => list.Count > 1);
+            return _equalHashFiles.Values.Where(list => list.Count > 1).ToArray();
         }
-        
-        private void ProcessFile(object arg)
+
+        private void HandleFiles()
         {
-            var processedFile = (string) arg;
-            try
+            while (!(_isFilesDetectorTaskDone && _allFilesQueue.IsEmpty))
             {
-                var fileInfo = new FileInfo(processedFile);
-                AddFileToDictionary(_equalSizeFiles, fileInfo.Length, processedFile);
-                var currentList = _equalSizeFiles[fileInfo.Length];
-                if (currentList.Count == 2)
-                {
-                    foreach (var fileInList in currentList)
-                        _hashEqualFiles.Enqueue(fileInList);
-                    //    AddFileToDictionary(_equalFiles, GetHash(fileInList).Result, fileInList);
-                }
-                else if (currentList.Count > 2)
-                {
-                    _hashEqualFiles.Enqueue(processedFile);
-                    //AddFileToDictionary(_equalFiles, GetHash(processedFile).Result, processedFile);
-                }
-            }
-            catch (Exception)
-            {
-                return;
+                string file;
+                if (_allFilesQueue.TryDequeue(out file))
+                    ProcessFile(file);
+                else
+                    Thread.Sleep(1);
             }
         }
 
-        private async Task<string> GetHash(string filePath)
+        private void ProcessFile(string processedFile)
+        {
+            var fileInfo = new FileInfo(processedFile);
+            _equalSizeFiles.AddFile(fileInfo.Length, processedFile);
+            var currentList = _equalSizeFiles[fileInfo.Length];
+            if (currentList.Count == 2)
+            {
+                foreach (var fileInList in currentList)
+                    _equalHashesQueue.Enqueue(fileInList);
+            }
+            else if (currentList.Count > 2)
+            {
+                _equalHashesQueue.Enqueue(processedFile);
+            }
+        }
+
+        private void HandleHashes()
+        {
+            while (!(_isFilesHandlerTaskDone && _equalHashesQueue.IsEmpty))
+            {
+                string file;
+                if (_equalHashesQueue.TryDequeue(out file))
+                {
+                    string hash;
+                    try
+                    {
+                        hash = GetHash(file).Result;
+                    }
+                    catch (AggregateException ex)
+                    {
+                        if (ex.InnerException is UnauthorizedAccessException || ex.InnerException is IOException)
+                            continue;
+                        throw;
+                    }
+                    _equalHashFiles.AddFile(hash, file);
+                }
+                else
+                {
+                    Thread.Sleep(1);
+                }
+            }
+        }
+
+        private static async Task<string> GetHash(string filePath)
         {
             using (var fileStream = new FileStream(filePath, FileMode.Open))
             {
-                const int batchSize = 4096;
+                const int batchSize = 16384;
                 var md5 = new MD5CryptoServiceProvider();
                 var block = new byte[batchSize];
                 while (true)
@@ -109,8 +140,11 @@ namespace EqualFilesDetector1
                 }
             }
         }
+    }
 
-        private void AddFileToDictionary<TKey>(Dictionary<TKey, List<string>> dictionary, TKey key, string value)
+    public static class Helper
+    {
+        public static void AddFile<TKey>(this Dictionary<TKey, List<string>> dictionary, TKey key, string value)
         {
             List<string> temp;
             if (!dictionary.TryGetValue(key, out temp))

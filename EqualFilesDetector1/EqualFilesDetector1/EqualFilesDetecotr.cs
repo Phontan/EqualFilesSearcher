@@ -14,10 +14,10 @@ namespace EqualFilesDetector1
             _rootFolder = beginFolderPath;
         }
 
-        public IEnumerable<List<string>> Start()
+        public List<string>[] FindEqualFiles()
         {
-            var allFiles = SafeWalk.EnumerateFiles(_rootFolder, "*", SearchOption.AllDirectories);
-            return HandleAllFiles(allFiles);
+            var allFiles = SafeWalk.EnumerateFiles(_rootFolder);
+            return HandleAllFiles(allFiles).ToArray();
         }
 
         private IEnumerable<List<string>> HandleAllFiles(IEnumerable<string> arg)
@@ -26,9 +26,7 @@ namespace EqualFilesDetector1
 
             var equalSizeDictionary = new Dictionary<long, List<string>>();
             foreach (var fileInfo in allFiles.Select(file => new FileInfo(file)))
-            {
                 AddFileToDictionary(equalSizeDictionary, fileInfo.Length, fileInfo.FullName);
-            }
 
             var equalSizeFiles = equalSizeDictionary.Where(pair => pair.Value.Count > 1).SelectMany(batch => batch.Value);
             var equalFilesDictionary = new Dictionary<byte[], List<string>>();
@@ -49,9 +47,7 @@ namespace EqualFilesDetector1
                 }
             }
 
-            var equalFiles = equalSizeDictionary.Where(pair => pair.Value.Count > 1).Select(pair => pair.Value);
-
-            return equalFiles;
+            return equalSizeDictionary.Where(pair => pair.Value.Count > 1).Select(pair => pair.Value).ToArray();
         }
 
         private void AddFileToDictionary<TKey> (Dictionary<TKey, List<string>> dictionary, TKey key, string value)

@@ -7,17 +7,38 @@ namespace EqualFilesDetector1
 {
     public static class SafeWalk
     {
-        public static IEnumerable<string> EnumerateFiles(string path, string searchPattern, SearchOption searchOpt)
+        public static IEnumerable<string> EnumerateFiles(string path)
+        {
+            double progress = 0;
+            return RecursiveEnumerateFiles(path, 100, ref progress);
+        }
+
+        private static IEnumerable<string> RecursiveEnumerateFiles(string path, double folderProgress, ref double progress)
         {
             try
             {
-                var dirFiles = Enumerable.Empty<string>();
-                if (searchOpt == SearchOption.AllDirectories)
+                var dirFiles = Directory.GetFiles(path);
+                var dirDirectories = Directory.GetDirectories(path);
+                var dirsAndFiles = dirFiles.Length + dirDirectories.Length;
+
+                if (dirsAndFiles == 0)
                 {
-                    dirFiles = Directory.EnumerateDirectories(path)
-                                        .SelectMany(x => EnumerateFiles(x, searchPattern, searchOpt));
+                    progress += folderProgress;
+                    return Enumerable.Empty<string>();
                 }
-                return dirFiles.Concat(Directory.EnumerateFiles(path, searchPattern));
+
+                var currentFolderProgress = folderProgress / dirsAndFiles;
+
+                var innerFiles =new List<string>();
+                foreach (var directory in dirDirectories)
+                {
+                    innerFiles.AddRange(RecursiveEnumerateFiles(directory, currentFolderProgress, ref progress));
+                }
+                
+                progress += dirFiles.Length*currentFolderProgress;
+                Console.WriteLine(progress);
+
+                return dirFiles.Union(innerFiles);
             }
             catch (UnauthorizedAccessException ex)
             {
