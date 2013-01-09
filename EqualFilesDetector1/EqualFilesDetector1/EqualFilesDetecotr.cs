@@ -55,7 +55,7 @@ namespace EqualFilesDetector1
         }
 
         private void AddFileToDictionary<TKey> (Dictionary<TKey, List<string>> dictionary, TKey key, string value)
-        {
+        {   
             List<string> temp;
             if (!dictionary.TryGetValue(key, out temp))
                 temp = dictionary[key] = new List<string>();

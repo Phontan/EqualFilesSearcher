@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 
 namespace EqualFilesDetector1
 {
@@ -6,8 +7,9 @@ namespace EqualFilesDetector1
     {
         static void Main(string[] args)
         {
-            const string beginFolderPath = @"c:/python27";
-            var startTime = DateTime.Now.Ticks;
+            //const string beginFolderPath = @"c:/windows";
+            const string beginFolderPath = @"d:/1/";
+            var sw = Stopwatch.StartNew();
             //var equlFilesDetector = new EqualFilesDetecotr(beginFolderPath);
             //var result = equlFilesDetector.Start();
             var parallelEqualsFilesDetector = new ParallelEqualsFilesDetector();
@@ -16,11 +18,13 @@ namespace EqualFilesDetector1
             {
                 foreach (var fileName in batch)
                 {
-                    Console.WriteLine(fileName);
+                    
                 }
-                Console.WriteLine("\n\n\n");
+                //    Console.WriteLine(fileName);
+                //Console.WriteLine("\n\n\n");
             }
-            Console.WriteLine(DateTime.Now.Ticks - startTime);
+            Console.WriteLine(sw.ElapsedMilliseconds.ToString("#.##"));
+            Console.Read();
         }
     }
 }
